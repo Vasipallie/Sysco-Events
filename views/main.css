@@ -1,0 +1,192 @@
+@font-face {
+    font-family: 'geomanist';
+    src: url('resources/geomanist.ttf');
+}
+@font-face {
+    font-family: 'geomanist2';
+    src: url('resources/geomanist2.ttf');
+}
+html {
+    min-height: 100%;
+    box-sizing: border-box;
+}
+
+*, *::before, *::after {
+    box-sizing: inherit;
+}
+
+body {
+    min-height: 100%;
+    margin: 0;
+    background-color: #000000;
+    color:#E6FDFF;
+    font-family: 'geomanist';
+    line-height: 1em;
+}
+.maine{
+    width:100%;
+    height:fit-content;
+    padding-bottom: 0.2em;
+    background-color: #031A54;
+    border-radius: 0 0 2em 0;
+    margin-bottom:0.6em ;
+}
+.maine h1{
+    font-weight: 400;
+    line-height: 0;
+    font-size: 3em;
+    line-height: 0;
+    font-family: 'geomanist2';
+}
+.maine p{
+    line-height: 0.8em;
+}
+.infom{
+    height: 4em;
+}
+hr{
+    border:1px solid #E6FDFF;
+}
+.holder{
+    margin: 0.6em;
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(10em, 100%), 1fr));
+    gap: 0.6em;
+}
+.item{
+    width: 100%;
+    aspect-ratio: 1;
+    background-color: #031A54;
+    font-size: 1.2em;
+    padding: 0.5em;
+    box-sizing: border-box;
+    text-decoration: none;
+    color: #ffffff;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+.item p{
+    position: relative;
+    bottom: 0;
+    right: 0;
+}
+
+.item:hover,
+.item:focus-visible {
+    background-color: #062467;
+    border-color: #98f6ff;
+    outline: none;
+}
+
+.item:active {
+    transform: translateY(0);
+}
+
+::-webkit-scrollbar {
+  width: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: #031A54; 
+}
+ 
+::-webkit-scrollbar-thumb {
+  background: #E6FDFF; 
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #98f6ff; 
+}
+.item img{
+    width: 70%;
+    height: 70%;
+    display: block;
+}
+h1{
+    line-height: 1em;
+}
+
+form {
+    width: min(100% - 2em, 42rem);
+    margin: 2em auto;
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+    background: #03143f;
+    border: 1px solid rgba(230, 253, 255, 0.22);
+    border-radius: 1.25rem;
+    box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.35);
+}
+
+form label {
+    display: block;
+    margin: 1.1rem 0 0.45rem;
+    color: #d8faff;
+    font-size: 0.95rem;
+    line-height: 1.35;
+}
+
+form label:first-of-type {
+    margin-top: 0;
+}
+
+form br {
+    display: none;
+}
+
+form input:not([type="submit"]) {
+    width: 100%;
+    min-height: 2.9rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid rgba(230, 253, 255, 0.3);
+    border-radius: 0.55rem;
+    outline: none;
+    background: rgba(0, 0, 0, 0.22);
+    color: #ffffff;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.2;
+    transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+form input:not([type="submit"]):hover {
+    border-color: rgba(230, 253, 255, 0.55);
+}
+
+form input:not([type="submit"]):focus {
+    border-color: #98f6ff;
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 0 3px rgba(152, 246, 255, 0.16);
+}
+
+form input[type="date"],
+form input[type="time"] {
+    color-scheme: dark;
+}
+
+form input[type="submit"] {
+    width: 100%;
+    min-height: 3rem;
+    margin-top: 1.6rem;
+    padding: 0.75rem 1rem;
+    border: 0;
+    border-radius: 0.6rem;
+    background: #98f6ff;
+    color: #03143f;
+    cursor: pointer;
+    font: 600 1rem 'geomanist', sans-serif;
+}
+
+form input[type="submit"]:hover {
+    background: #e6fdff;
+    box-shadow: 0 0.5rem 1.2rem rgba(152, 246, 255, 0.18);
+    transform: translateY(-1px);
+}
+
+form input[type="submit"]:focus-visible {
+    outline: 3px solid #e6fdff;
+    outline-offset: 3px;
+}
+
+form input[type="submit"]:active {
+    transform: translateY(0);
+}

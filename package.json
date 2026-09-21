@@ -1,0 +1,29 @@
+{
+  "name": "sysco",
+  "version": "1.0.0",
+  "description": "a event suite manager",
+  "keywords": [
+    "syco",
+    "event",
+    "suite"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "sysco"
+  },
+  "license": "ISC",
+  "author": "Vasipalli Eshan Aditya",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^18.0.1",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "mailtrap": "^4.10.0"
+  }
+}

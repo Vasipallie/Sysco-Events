@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="icon" type="image/icon" href="resources/sysco.png">
+</head>
+<body>
+    <div class="maine">
+        <img src="resources/syscot.png" class="infom">
+        <hr>
+        <h1><%= locals.event_name %></h1>
+        <p id="date"></p>
+    </div>
+    <div class="holder">
+        <a class="item" href="/qr">
+            <img src="resources/qr.png">
+            <p>Scan QR</p>
+        </a>
+        <a class="item" href="/email">
+            <img src="resources/email.png">
+            <p>Email Participants</p>
+        </a>
+        <a class="item" href="/participant">
+            <img src="resources/addu.png">
+            <p>Add participants</p>
+        </a>
+        <a class="item" href="/viewparticipant">
+            <img src="resources/u.png">
+            <p>View Participants</p>
+        </a>
+        <a class="item" href="/eventpage">
+            <img src="resources/event.png">
+            <p>Event Page</p>
+        </a>
+    </div>
+    <script>
+        const date = new Date();
+        var datdentity = document.getElementById('date');
+        var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        datdentity.innerHTML = "Today: "+date.getDate() + " " + months[date.getMonth()] + " " + date.getFullYear();
+    </script>
+</body>
+</html>

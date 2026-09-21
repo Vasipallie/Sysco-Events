@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="icon" type="image/icon" href="resources/sysco.png">
+</head>
+<body>
+    <div class="maine">
+        <img src="resources/syscot.png" class="infom">
+    </div>
+    <form action="/schedule" method="POST">
+        <h1>Schedule an Event</h1>
+        <p>Schedule an event with Sysco, an event suite that lets you manage your event</p>
+        <label for="event_name">Event Name:</label>
+        <input type="text" id="event_name" name="event_name" required><br><br>
+        <label for="email">Lead Organiser Email:</label>
+        <input type="email" id="email" name="email" required><br><br>
+        <label for="password">Event Page Password (This lets you manage your event):</label>
+        <input type="password" id="password" name="password" required><br><br>
+        <input type="submit" value="Schedule Event">
+    </form>
+</body>
+</html>
