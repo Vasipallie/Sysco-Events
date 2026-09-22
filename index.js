@@ -59,6 +59,28 @@ async function authcheck(req,res,next){
         }
     }
 }
+
+  function getSessions(event) {
+    const eventInfo = event.event_info;
+    if (!eventInfo) return {};
+
+    if (typeof eventInfo === 'string') {
+      try {
+        return JSON.parse(eventInfo) || {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    return typeof eventInfo === 'object' && !Array.isArray(eventInfo) ? eventInfo : {};
+  }
+
+  function sessionEntries(event) {
+    return Object.entries(getSessions(event))
+      .map(([name, id]) => ({name, id: Number(id)}))
+      .filter(({name, id}) => name.trim() && Number.isSafeInteger(id) && id > 0);
+  }
+
 app.get('/dashboard', (req,res,next)=>{
     authcheck(req,res,(error, data)=>{
         if (error) return next(error);
@@ -70,6 +92,125 @@ app.get('/dashboard', (req,res,next)=>{
         })
     })    
 })
+app.get('/eventpage', (req,res)=>{
+  authcheck(req,res,(error, data)=>{
+    if (error) return res.status(500).send('Error authenticating the requested event');
+    const event = data[0];
+    res.render('editevent', {
+      username:req.cookies.username,
+      event_name:event.event_name,
+      sessions:sessionEntries(event),
+    });
+  });
+});
+
+
+async function generatesessions(username, sessions){
+  const targetSessionIds = new Set(
+    Object.values(sessions || {})
+      .map(id => Number(id))
+      .filter(id => Number.isSafeInteger(id) && id > 0)
+  );
+
+  const {data: users, error} = await supabase.from('Users').select('*').eq('username', username);
+  if (error) {
+    console.error('Error fetching users for session generation:', error);
+    return;
+  }
+  if (!users || users.length === 0) return;
+
+  for (const user of users){
+    const {data: existingSesh, error: eErr} = await supabase.from('Sessions').select('*').eq('uuid', user.uuid);
+    if (eErr){
+      console.error('Error fetching existing sessions for user', user.uuid, eErr);
+      continue;
+    }
+
+    const existingSessionIds = new Set((existingSesh || []).map(s => Number(s.sessionid)));
+
+    const sessionsToDelete = (existingSesh || [])
+      .filter(s => !targetSessionIds.has(Number(s.sessionid)))
+      .map(s => s.sessionid);
+
+    if (sessionsToDelete.length > 0) {
+      const {error: delErr} = await supabase
+        .from('Sessions')
+        .delete()
+        .eq('uuid', user.uuid)
+        .in('sessionid', sessionsToDelete);
+
+      if (delErr) console.error('Error deleting stale sessions for user', user.uuid, delErr);
+    }
+
+    const sessionsToInsert = Array.from(targetSessionIds)
+      .filter(id => !existingSessionIds.has(id))
+      .map(id => ({uuid: user.uuid, sessionid: id}));
+
+    if (sessionsToInsert.length > 0) {
+      const {error: insErr} = await supabase.from('Sessions').insert(sessionsToInsert);
+      if (insErr) console.error('Error inserting new sessions for user', user.uuid, insErr);
+    }
+  }
+}
+app.post('/editevent', async (req,res)=>{
+  authcheck(req,res,async (error, data)=>{
+    if (error) return res.status(500).send('Error authenticating the requested event');
+    const username = req.cookies.username;
+    const event_name = req.body.event_name;
+    const {data: currentEvent, error: fetchErr} = await supabase.from('Events').select('*').eq('username', username).single();
+    if (fetchErr || !currentEvent) return res.status(500).send('Error fetching event data');
+
+    const eventInfo = getSessions(currentEvent);
+
+    let sessionIds = req.body.session_id;
+    let sessionNames = req.body.session_name;
+
+    if (typeof sessionIds === 'undefined') sessionIds = [];
+    else if (!Array.isArray(sessionIds)) sessionIds = [sessionIds];
+
+    if (typeof sessionNames === 'undefined') sessionNames = [];
+    else if (!Array.isArray(sessionNames)) sessionNames = [sessionNames];
+
+    let maxId = 0;
+    for (const val of Object.values(eventInfo)) {
+      const parsed = Number(val);
+      if (Number.isSafeInteger(parsed) && parsed > maxId) {
+        maxId = parsed;
+      }
+    }
+
+    const newEventInfo = {};
+    for (let i = 0; i < sessionNames.length; i++) {
+      const name = typeof sessionNames[i] === 'string' ? sessionNames[i].trim() : '';
+      if (!name) continue;
+
+      let idStr = typeof sessionIds[i] === 'string' ? sessionIds[i].trim() : '';
+      let idNum = Number(idStr);
+
+      if (idStr && Number.isSafeInteger(idNum) && idNum > 0) {
+        newEventInfo[name] = String(idNum);
+        if (idNum > maxId) maxId = idNum;
+      } else {
+        maxId += 1;
+        newEventInfo[name] = String(maxId);
+      }
+    }
+
+    const {error:updatingerr} = await supabase
+      .from('Events')
+      .update({
+        event_name,
+        event_info: JSON.stringify(newEventInfo)
+      })
+      .eq('username', username);
+
+    if(updatingerr) return res.status(500).send('Error updating event info');
+    await generatesessions(username, newEventInfo);
+    res.redirect('/eventpage');
+  });
+});
+
+
 app.get('/qr', (req,res)=>{
     authcheck(req,res,(error, data)=>{
     if (error) return res.status(500).send('Error authenticating the requested event');
@@ -77,8 +218,9 @@ app.get('/qr', (req,res)=>{
             username:req.cookies.username,
             hash:req.cookies.hash,
             event_name:data[0].event_name,
-      supabaseUrl:supalink,
-      supakey:supakey,
+            sessions:sessionEntries(data[0]),
+            supabaseUrl:supalink,
+            supakey:supakey,
         })
     })
 })
@@ -93,7 +235,8 @@ app.post('/schedule', async (req,res)=>{
     const username = email.split('@')[0] + Math.random().toString(36).substring(2, 4);
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-    const {error} = await supabase.from('Events').insert([{event_name: event_name, email:email, hash, salt, username}]);
+    const event_info = JSON.stringify({});
+    const {error} = await supabase.from('Events').insert([{event_name: event_name, email:email, hash, salt, username, event_info}]);
     
     if (error){
         console.error('Error inserting data:', error);
@@ -266,13 +409,22 @@ app.get('/logind/:id', (req,res)=>{
         }
     });
 });
-app.get('/email', (req,res)=>{
+app.get('/viewparticipant', (req,res)=>{
     authcheck(req,res,async (error, data)=>{
         if (error) return res.status(500).send("Error authenticating");
-        const {data:datea, error:errora} = await supabase.from('Users').select('*').eq('username', req.cookies.username).single();
+        const {data:datea, error:errora} = await supabase.from('Users').select('*').eq('username', req.cookies.username);
         console.log(datea);
-        if (data) return res.render('email', { username:req.cookies.username, hash:req.cookies.hash, event_name:data[0].event_name, datea})
+        if (data) return res.render('viewparticipant', { username:req.cookies.username, event_name:data[0].event_name, datea})
     })
+})
+app.get('/remove/:id', (req,res)=>{
+  authcheck(req,res,async (error, data)=>{
+    if (error) return res.status(500).send("Error authenticating");
+    const {id} = req.params;
+    const {error:errora} = await supabase.from('Users').delete().eq('uuid',id);
+    if (errora) return res.status(500).send("Error deleting the participant");
+    res.redirect('/viewparticipant');
+  });
 })
 
 if (process.env.VERCEL !== '1') {
