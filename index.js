@@ -16,15 +16,15 @@ const port =3000;
 app.use(cookieParser());
 const supalink = process.env.supalink;
 const supakey = process.env.supakey;
-const supabase = supalink && supakey ? createClient(supalink,supakey): null;
+const supabase = createClient(supalink,supakey);
 const MAILTRAP = process.env.MAILTRAP;
-
+const host = process.env.HOST || `http://localhost:${port}`;
 const clientelle = new MailtrapClient({
   token: MAILTRAP,
 });
 
 const sender = {
-  email: process.env.SENDER_EMAIL,
+  email: process.env.SENDER_EMAIL || 'sysco@giisclubs.org',
     name: 'Sysco Events',
 };
 
@@ -49,9 +49,11 @@ async function authcheck(req,res,next){
     }
     if (hash && username) {
         // Check if them users are authenticated or naht
-        const {data, error} = await supabase.from('Events').select('*').eq('username', hash);
+        const {data, error} = await supabase.from('Events').select('*').eq('hash', hash);
         if (error) {
             return res.status(500).send("Error fetching the requested event");
+        } else if (!data || data.length === 0) {
+          return res.status(401).send("Invalid credentials");
         } else{
             next(null, data);
         }
@@ -68,33 +70,30 @@ app.get('/dashboard', (req,res,next)=>{
         })
     })    
 })
+app.get('/qr', (req,res)=>{
+    authcheck(req,res,(error, data)=>{
+    if (error) return res.status(500).send('Error authenticating the requested event');
+        res.render('qr', {
+            username:req.cookies.username,
+            hash:req.cookies.hash,
+            event_name:data[0].event_name,
+      supabaseUrl:supalink,
+      supakey:supakey,
+        })
+    })
+})
 app.get('/login', (req,res)=>{
     res.render('login')
 })
-app.get('/logind/:id', (req,res)=>{
-    const {id} = req.params;
-    const username = id.split('?')[0];
-    const password = id.split('?')[1];
-    const {data, error}= supabase.from('users').select('*').eq('username').single();
-    if (error){
-        console.error('Error fetching event:', error);
-        res.status(500).send("Error fetching the requested event");
-    }
-    const {hash, salt} = data;
-    const hashcheck = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-    if (hashcheck !== hash){
-        res.status(401).send("Invalid credentials");
-    } else{
-        res.cookie('hash',hash, {httpOnly:true}); 
-        res.cookie('username',username, {httpOnly:true});
-        res.redirect('/dashboard');
-    }
-})
 app.post('/schedule', async (req,res)=>{
-    const {event_name, email, description, password} = req.body;
+    const {event_name, email, password} = req.body;
+  if (!event_name || !email || !password) {
+    return res.status(400).send('Event name, email, and password are required');
+  }
+    const username = email.split('@')[0] + Math.random().toString(36).substring(2, 4);
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-    const {error} = await supabase.from('events').insert([{event_name: event_name, email:email, event_desc:description, hash, salt}]);
+    const {error} = await supabase.from('Events').insert([{event_name: event_name, email:email, hash, salt, username}]);
     
     if (error){
         console.error('Error inserting data:', error);
@@ -106,12 +105,12 @@ app.post('/schedule', async (req,res)=>{
             }
         ];
         if (MAILTRAP) {
-    clientelle
-        .send({
-            from: sender,
+      try {
+        await clientelle.send({
+          from: sender,
             to: recipients,
             subject: `Your ${event_name} Login Details are Ready`,
-            text: `Your event has been scheduled successfully. You can log in to your event dashboard using the following credentials:\n\nUsername: ${name}\nPassword: ${password}\n\nPlease keep this information secure.\n\nBest regards,\nSysco Events Team`,
+            text: `Your event has been scheduled successfully. You can log in to your event dashboard using the following credentials:\n\nUsername: ${event_name}\nPassword: ${password}\n\nPlease keep this information secure.\n\nBest regards,\nSysco Events Team`,
             html: `
             <!DOCTYPE html>
 <html lang="en">
@@ -128,7 +127,7 @@ app.post('/schedule', async (req,res)=>{
 
           <tr>
             <td align="center" bgcolor="#031A54" style="padding:16px; border-radius:0 0 24px 24px;">
-              <img src="${host}/syscot.png" alt="Sysco" height="48" style="display:block; height:48px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+              <img src="${host}/resources/syscot.png" alt="Sysco logo" height="48" style="display:block; height:48px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
             </td>
           </tr>
 
@@ -157,7 +156,7 @@ app.post('/schedule', async (req,res)=>{
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td align="center" bgcolor="#4378FF" style="border-radius:8px;">
-                          <a href="${host}/logind/${username}?${password}" target="_blank" style="display:inline-block; padding:14px 32px; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none;">Login to Dashboard</a>
+                          <a href="${host}/logind/${encodeURIComponent(username)}?password=${encodeURIComponent(password)}" target="_blank" style="display:inline-block; padding:14px 32px; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none;">Login to Dashboard</a>
                         </td>
                       </tr>
                     </table>
@@ -172,8 +171,8 @@ app.post('/schedule', async (req,res)=>{
                 </tr>
                 <tr>
                   <td align="center" style="padding:24px 24px 28px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:26px; color:#ffffff;">
-                    Or use these details on <a href="{{login_url}}" target="_blank" style="color:#98c8ff;">Sysco Login</a><br>
-                    <strong>Username:</strong>${username}<br>
+                    Or use these details on <a href="${host}/login" target="_blank" style="color:#98c8ff;">Sysco Login</a><br>
+                    <strong>Username:</strong> ${username}<br>
                     <strong>Password:</strong> ${password}
                   </td>
                 </tr>
@@ -193,14 +192,87 @@ app.post('/schedule', async (req,res)=>{
                 "X-Priority": "1",
                 "X-MSMail-Priority": "High",
             },
-        })
-        .then(console.log, console.error);
+        });
+      } catch (error) {
+        console.error('Mailtrap send failed:', error);
+        return res.status(502).send('Event created, but the login email could not be sent');
+      }
 } else {
     console.error('MAILTRAP is not configured; skipping email.');
 }
         res.redirect('login');
     }
     
+});
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).send('Username and password are required');
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('Events')
+            .select('*')
+            .eq('username', username)
+            .single();
+
+        if (error || !data) {
+            console.error('Error fetching event:', error);
+            return res.status(401).send('Invalid credentials');
+        }
+
+        const hash = data.hash;
+        const salt = data.salt;
+        const hashcheck = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+
+        if (hashcheck !== hash) {
+            return res.status(401).send('Invalid credentials');
+        }
+
+        res.cookie('hash', hash, { httpOnly: true });
+        res.cookie('username', username, { httpOnly: true });
+        return res.redirect('/dashboard');
+    } catch (err) {
+        console.error('Login error:', err);
+        return res.status(500).send('Error logging in');
+    }
+});
+app.get('/logind/:id', (req,res)=>{
+    const {id} = req.params;
+  const {password} = req.query;
+  const username = id;
+  if (!username || typeof password !== 'string' || !password) {
+    return res.status(400).send("Username and password are required");
+  }
+    supabase.from('Events').select('*').eq('username',username).single().then(({error, data })=>{
+        if (error){
+            console.error('Error fetching event:', error);
+      return res.status(500).send("Error fetching the requested event");
+        }
+    if (!data) {
+      return res.status(404).send("Event not found");
+    }
+        const hash = data.hash;
+        const salt = data.salt;
+        const hashcheck = crypto.pbkdf2Sync(password, salt, 1000,64, 'sha512').toString('hex');
+        if (hashcheck !== hash){
+            res.status(401).send("Invalid credentials");
+        }else{
+            res.cookie('hash',hash, {httpOnly:true});
+            res.cookie('username',username, {httpOnly:true});
+            res.redirect('/dashboard');
+        }
+    });
+});
+app.get('/email', (req,res)=>{
+    authcheck(req,res,async (error, data)=>{
+        if (error) return res.status(500).send("Error authenticating");
+        const {data:datea, error:errora} = await supabase.from('Users').select('*').eq('username', req.cookies.username).single();
+        console.log(datea);
+        if (data) return res.render('email', { username:req.cookies.username, hash:req.cookies.hash, event_name:data[0].event_name, datea})
+    })
 })
 
 if (process.env.VERCEL !== '1') {

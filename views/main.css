@@ -26,16 +26,28 @@ body {
 .maine{
     width:100%;
     height:fit-content;
-    padding-bottom: 0.2em;
+    padding: 1.1em clamp(1em, 4vw, 2.5em) 0.7em;
     background-color: #031A54;
     border-radius: 0 0 2em 0;
-    margin-bottom:0.6em ;
+    margin-bottom:0.8em;
+    border-bottom: 1px solid rgba(152, 246, 255, 0.3);
+    box-shadow: 0 0.6rem 1.5rem rgba(0, 0, 0, 0.22);
+
+}
+h1{
+    font-weight: 400;
+    line-height: 0;
+    font-size: 2em;
+    line-height: 0;
+    margin-top:0;
+    margin-bottom:0;
+    font-family: 'geomanist2';
 }
 .maine h1{
     font-weight: 400;
     line-height: 0;
     font-size: 3em;
-    line-height: 0;
+    line-height: 0.9em;
     font-family: 'geomanist2';
 }
 .maine p{
@@ -65,17 +77,21 @@ hr{
     border: 1px solid transparent;
     cursor: pointer;
     transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+    border-radius: 0 0 1em 0;
+    box-sizing: border-box;
 }
 .item p{
     position: relative;
     bottom: 0;
     right: 0;
+    font-size:1.5em;
+    line-height: 1em;
 }
 
 .item:hover,
 .item:focus-visible {
     background-color: #062467;
-    border-color: #98f6ff;
+    border:2px solid #98f6ff;
     outline: none;
 }
 
@@ -102,9 +118,12 @@ hr{
     width: 70%;
     height: 70%;
     display: block;
+    filter: brightness(0) invert(1);
 }
 h1{
     line-height: 1em;
+    margin:0;
+    padding:0;
 }
 
 form {
@@ -189,4 +208,14 @@ form input[type="submit"]:focus-visible {
 
 form input[type="submit"]:active {
     transform: translateY(0);
+}
+.center{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction:column;
+}
+p{
+    margin:0;
+    padding:0;
 }

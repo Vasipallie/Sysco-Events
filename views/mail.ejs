@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="icon" type="image/icon" href="resources/sysco.png">
+    <style>
+        #scams{
+            width: 40em;
+            margin: 1rem auto 0;
+            border-radius: 1em;
+        }
+        #scams video{
+            transform: scaleX(-1);
+            
+            border-radius: 1em;
+            
+        }
+        @media (max-width: 40em){
+            #scams,
+            #scams video{
+                width: 100%;
+                max-width: 100%;
+            }
+        }
+        .descision{
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #000a1d;
+            padding: 20px;
+            width:100%;
+            height:100%;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+        .descision h1{
+            font-size: 4em;
+            margin-bottom: 10px;
+        }
+        .descision h2{
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .rej{
+            display: none;
+            background: linear-gradient(145deg, rgba(255,0,0,1) 0%, rgb(29, 0, 0) 100%);
+        }
+        .accept{
+            display: none;
+            background: linear-gradient(145deg, rgb(0, 206, 0) 0%, rgb(0, 29, 0) 100%);
+        }
+        .inform{
+            filter: brightness(0) invert(1);
+            width: 100px;
+        }
+        .anim{
+            position: absolute;
+            top:0;
+            width: 100%;
+            height:0.4em;
+            padding:0;
+            margin:0;
+            box-sizing:border-box;
+            left:0;
+        }
+        .loader{
+            height:100%;
+            background:fixed linear-gradient(90deg,  rgba(255,255,255,0.1)  0%, rgb(255, 255, 255) 100%);
+            animation: loading 5s linear infinite;
+        }
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .top{
+            display:flex;
+            justify-content:space-between;
+            width:100%;
+            font-size:1.5em;
+            color:#E6FDFF;
+        }
+        select{
+            width:20em;
+            padding:0.5em;
+            font-size:1.2em;
+            border-radius:1em;
+            background-color:#031A54;
+            color:#E6FDFF;
+            border:1.5px solid #E6FDFF;
+            margin-block:1em;
+        }
+        a{
+            color:#E6FDFF;
+            font-size:1.2em;
+            line-height:1.5em;
+        }
+        .dashi{
+            display:inline-block;
+            text-decoration:none;
+            border-radius:0.4em;
+            border:1px solid #E6FDFF;
+            padding:0.2em 0.4em;
+            margin-top:0.4em;
+        }
+    </style>
+</head>
+<body>
+    <div class="maine">
+        <img src="resources/syscot.png" class="infom">
+        <hr>
+        <h1><%= locals.event_name %></h1>
+        <p id="date"></p>
+        <a class="dashi" href="/dashboard">Back to Dashboard</a>
+    </div>
+    <div class="center">
+        <h1>Scan Participant QR</h1>
+        <select id="session">
+            <option disabled value="--Choose a Session--">--Choose a Session--</option>
+            <%- locals.session %>
+        </select>
+        <div id="scams"></div>
+        <div class="holder">
+            <a href="/markmanual">Manual Check-In</a>
+        </div>
+    </div>
+    <div class="rej descision" id="rejection">
+        <div class="anim">
+            <div class="loader"></div>
+        </div>
+        <div class="top">
+            <span id="chkname"></span>
+            <span class="lef">Check-In</span>
+        </div>
+        <img class="inform" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWNpcmNsZS14IHByZXZpZXctaWNvbiI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48cGF0aCBkPSJtMTUgOS02IDYiLz48cGF0aCBkPSJtOSA5IDYgNiIvPjwvc3ZnPg==" alt="denied">
+        <h1>Already Checked In</h1>
+        <hr>
+        <h2 id="rejname">John Cena</h2>
+        <p id="rejdetails"></p>
+        <p>ID: <span id="rejid"></span></p>
+    </div>
+
+    <div class="accept descision" id="acception">
+        <div class="anim">
+            <div class="loader"></div>
+        </div>
+        <div class="top">
+            <span id="chkname"></span>
+            <span class="lef">Check-In</span>
+        </div>
+        <img class="inform" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWNpcmNsZS1jaGVjay1iaWcgcHJldmlldy1pY29uIj48cGF0aCBkPSJNMjEuODAxIDEwQTEwIDEwIDAgMSAxIDE3IDMuMzM1Ii8+PHBhdGggZD0ibTkgMTEgMyAzTDIyIDQiLz48L3N2Zz4=" alt="accpeted">
+        <h1>Checked In</h1>
+        <hr>
+        <h2 id="accname">John Cena</h2>
+        <p id="accdetails"></p>
+        <p>ID: <span id="accid"></span></p>
+    </div>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        const supakey = "<%= locals.supakey %>";
+        const supabaseUrl = "<%= locals.supabaseUrl %>";
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supakey);
+        const rejecid = document.getElementById('rejection');
+        const acceptid = document.getElementById('acception');
+            function onScanSuccess(decodedText, decodedResult) {
+        // Handle the scanned code
+        console.log(`Code matched = ${decodedText}`, decodedResult);
+    }
+ 
+    const html5QrCode = new Html5Qrcode("scams");
+    const scannerConfig = { fps: 10, qrbox: {width: 250, height: 250} };
+
+    Html5Qrcode.getCameras().then((devices) => {
+        if (!devices || devices.length === 0) {
+            throw new Error("No camera found");
+        }
+
+        const cameraId = devices[0].id;
+        return html5QrCode.start(cameraId, scannerConfig, onScanSuccess);
+    }).catch((error) => {
+        console.error("Unable to start QR scanner:", error);
+    });
+
+        const date = new Date();
+        var datdentity = document.getElementById('date');
+        var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        datdentity.innerHTML = "Today: "+date.getDate() + " " + months[date.getMonth()] + " " + date.getFullYear();
+    </script>
+</body>
+</html>
