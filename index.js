@@ -924,7 +924,7 @@ app.get('markmanual', (req,res)=>{
 })
 
 app.get('/', (req,res) => {
-    res.render('schedule')
+    res.render('eventreg')
 })
 
 export default app;
