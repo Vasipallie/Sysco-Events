@@ -52,7 +52,7 @@ async function authcheck(req,res,next){
     }
     if (hash && username) {
         // Check if them users are authenticated or naht
-        const {data, error} = await supabase.from('Events').select('*').eq('hash', hash);
+        const {data, error} = await supabase.from('Events').select('*').eq('hash', hash).eq('username', username);
         if (error) {
             return res.status(500).send("Error fetching the requested event");
         } else if (!data || data.length === 0) {
