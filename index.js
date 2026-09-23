@@ -595,6 +595,8 @@ app.post('/edit/:id', (req,res)=>{
   })
 })
 
+export default app;
+
 if (process.env.VERCEL !== '1') {
     app.listen(port, () => {
         console.log('server is running on port ' + port);
