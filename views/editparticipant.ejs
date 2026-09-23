@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="/main.css">
+    <link rel="icon" type="image/icon" href="/resources/sysco.png">
+    <style>
+    .dashi{
+        display:inline-block;
+        text-decoration:none;
+        border-radius:0.4em;
+        border:1px solid #E6FDFF;
+        padding:0.2em 0.4em;
+        margin-top:0.4em;
+    }
+    a{
+        color:#E6FDFF;
+        font-size:1.2em;
+        line-height:1.5em;
+    }
+    .particihold{
+        display:flex;
+        flex-direction:column;
+        flex:1;
+        padding:0.6em;
+        width:100%;
+        min-height:0;
+    }
+    form textarea{
+        width:100%;
+        padding:0.6em 0.8em;
+        font-size:1.1em;
+        border-radius:0.6em;
+        background-color:#031A54;
+        color:#E6FDFF;
+        border:1.5px solid #E6FDFF;
+        box-sizing:border-box;
+        font-family:inherit;
+        transition:border-color 160ms ease, box-shadow 160ms ease;
+    }
+    form textarea{
+        min-height:6em;
+        resize:vertical;
+    }
+    form textarea:focus{
+        outline:none;
+        border-color:#98f6ff;
+        box-shadow:0 0 0 3px rgba(152, 246, 255, 0.25);
+    }
+    form input::placeholder,
+    form textarea::placeholder{
+        color:rgba(230, 253, 255, 0.5);
+    }
+</style>
+</head>
+<body>
+    <div class="maine">
+        <img src="/resources/syscot.png" class="infom">
+        <hr>
+        <h1><%= locals.event_name %></h1>
+        <p id="date"></p>
+        <a class="dashi" href="/dashboard">Back to Dashboard</a>
+    </div>
+    <h1 style="text-align: center;">Edit Participant</h1>
+    <span><%=locals.alert %></span>
+            <form method="POST" action="/edit/<%=participant.uuid%>">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" value="<%=participant.name%>">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" value="<%=participant.email%>">
+            <label for="extrainfo">Extra Info:</label>
+            <textarea id="extrainfo" name="extrainfo"><%=participant.extrainfo%></textarea>
+            <button type="submit" style="margin-top: 1em; padding: 0.5em 1em; font-size: 1.2em; border-radius: 0.4em; background-color: #E6FDFF; color: #031A54; border: none; cursor: pointer;">Save Changes</button>
+            </form>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        const date = new Date();
+        var datdentity = document.getElementById('date');
+        var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        datdentity.innerHTML = "Today: "+date.getDate() + " " + months[date.getMonth()] + " " + date.getFullYear();
+    </script>
+</body>
+</html>

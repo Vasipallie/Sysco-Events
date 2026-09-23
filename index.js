@@ -3,8 +3,11 @@ import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import {fileURLToPath, pathToFileURL} from 'url';
+import {readFile} from 'fs/promises';
 import {createClient} from '@supabase/supabase-js';
 import {MailtrapClient} from 'mailtrap';
+import QRCode from 'qrcode';
+import ejs from 'ejs';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 dotenv.config();
@@ -417,14 +420,179 @@ app.get('/viewparticipant', (req,res)=>{
         if (data) return res.render('viewparticipant', { username:req.cookies.username, event_name:data[0].event_name, datea})
     })
 })
+app.get('/sendemail/:id', (req,res)=>{
+  authcheck(req,res,async (error, data)=>{
+    if (error) return res.status(500).send("Error authenticating");
+    const {id} = req.params;
+    const {data:participant, error:err} =await supabase.from('Users').select('*').eq('uuid',id).single();
+    if (err) return res.status(500).send("Error fetching participant data");
+    const event_name = data[0].event_name;
+    const orgemail = data[0].email;
+    const u_name = participant.name;
+    const u_email = participant.email;
+    const additional_info = participant.extrainfo || "None";
+    const qr_code = await QRCode.toBuffer(`sysco://${participant.uuid}`, {type: 'png'});
+    
+    const recipients = [{
+      email: participant.email,
+    }]
+    const cc = participant.email.toLowerCase() === orgemail.toLowerCase()
+      ? []
+      : [{email: orgemail}];
+    if (MAILTRAP) {
+      try {
+        await clientelle.send({
+          from: sender,
+            to: recipients,
+            cc: cc,
+            subject: `Your ${event_name} Ticket`,
+            attachments: [{
+              filename: 'participant-qr.png',
+              content_id: 'participant-qr.png',
+              disposition: 'inline',
+              content: qr_code,
+            }],
+            text: `Welcome to ${event_name}, ${u_name}.
+
+Use the QR code in this email to access the event page. This QR code admits one person only.
+
+Your Email: ${u_email}
+Your Name: ${u_name}
+Additional information: ${additional_info}
+
+For help, contact the event organiser at ${orgemail}.
+
+${event_name} is powered by the Sysco Event Suite.`,
+            html: `
+            <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to {{event_name}}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#000000;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
+
+          <tr>
+            <td align="center" bgcolor="#031A54" style="padding:16px; border-radius:0 0 24px 24px;">
+              <img src="${host}/resources/syscot.png" alt="Sysco" height="48" style="display:block; height:48px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding:32px 24px 12px; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+              <h1 style="margin:0; font-size:26px; line-height:34px;">Welcome to ${event_name}, ${u_name}</h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding:0 24px 24px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#ffffff;">
+              You have been invited to ${event_name} via the Sysco event suite. Use the QR code below the access the event page. This QR code admits one person only. Please do not share this QR code with anyone else. Neither Sysco nor the event organisers are responsible for any misuse of this QR code. If you have any issues with the QR code, please contact the event organisers directly.
+              <br>
+              <br>
+              You may contact the event organiser at <a href="mailto:${orgemail}">${orgemail}</a>
+              <br>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 16px 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#031A54" style="border-radius:12px;">
+                <tr>
+                  <td align="center" style="padding:28px 24px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#ffffff;">
+                    Use this QR code on the day of the event
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:16px 24px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" bgcolor="#4378FF" style="border-radius:8px;">
+                          <img src="cid:participant-qr.png" alt="QR Code" style="display:block; height:200px;width:200px;padding:10px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 24px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr><td height="1" bgcolor="#ffffff" style="height:1px; line-height:1px; font-size:1px; opacity:0.3;">&nbsp;</td></tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:24px 24px 28px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:26px; color:#ffffff;">
+                    Your details for the event are as follows:<br>
+                    <strong>Your Email:</strong> ${u_email}<br>
+                    <strong>Your Name:</strong> ${u_name}<br>
+                    <strong>Additional information:</strong> ${additional_info}<br>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding:0 24px 24px; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:20px; color:#ffffff; text-align:center;">
+              ${event_name} is powered by the Sysco Event Suite
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+            `,
+            headers: {
+                "Importance": "high",
+                "X-Priority": "1",
+                "X-MSMail-Priority": "High",
+            },
+        });
+      } catch (error) {
+        console.error('Mailtrap send failed:', error);
+        return res.status(502).send('Email could not be sent');
+      }
+    }
+    res.redirect('/viewparticipant');
+  });
+})
 app.get('/remove/:id', (req,res)=>{
   authcheck(req,res,async (error, data)=>{
     if (error) return res.status(500).send("Error authenticating");
     const {id} = req.params;
     const {error:errora} = await supabase.from('Users').delete().eq('uuid',id);
+    const {error:errod} = await supabase.from('Sessions').delete().eq('uuid',id);
+    if (errod) return res.status(500).send("Error Deleting Participant Sessions")
     if (errora) return res.status(500).send("Error deleting the participant");
-    res.redirect('/viewparticipant');
+    res.redirect('/viewparticipant', {alert: "Participant Deleted Successfully"});
   });
+})
+app.get('/edit/:id', (req,res)=>{
+  authcheck(req,res, async (error,data)=>{
+    if (error) return res.status(500).send("Error Authenticating");
+    const {id} = req.params;
+    const {data:particpent, error:err} = await supabase.from('Users').select("*").eq('uuid',id).single();
+    if (err) return res.status(500).send("Error fetching participant data ");
+    res.render('editparticipant', {username:req.cookies.username, event_name:data[0].event_name, participant:particpent});
+  })
+})
+app.post('/edit/:id', (req,res)=>{
+  authcheck(req,res, async (error,data)=>{
+    if (error) return res.status(500).send("Error while Authenticating");
+    const {id} = req.params;
+    const {name,email,extrainfo}=req.body;
+    const {error:err} = await supabase.from('Users').update({name,email,extrainfo}).eq('uuid',id);
+    if (err) return res.status(500).send("Error while updating data");
+    res.redirect('/viewparticipant');
+  })
 })
 
 if (process.env.VERCEL !== '1') {
