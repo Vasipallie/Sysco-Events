@@ -171,12 +171,7 @@
         <p>ID: <span id="accid"></span></p>
     </div>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script>
-        const supakey = "<%= locals.supakey %>";
-        const supabaseUrl = "<%= locals.supabaseUrl %>";
-        const supabaseClient = window.supabase.createClient(supabaseUrl, supakey);
-
         let scannerpause = false;
         const html5QrCode = new Html5Qrcode("scams");
         const scannerConfig = { fps: 10, qrbox: {width: 250, height: 250} };
@@ -237,32 +232,30 @@
                     rejection("Error", "Invalid QR code, Malformed Identity", "This scanned QR code is malformed and may be intentionally tampered with, please check the QR code and try again", "N/A");
                     return;
                 }
-                console.log(identity);
-                const username = document.getElementById('username').innerText;
-                const {data:ussr, error:usrErr} = await supabaseClient.from('Users').select('*').eq('uuid', identity).single();
-                if (usrErr || !ussr){
-                    rejection("Error", "User Not Found", "The user associated with this event could not be found, Please check the QR code and try again", "N/A");
-                }
-                const {data:damel, error:damerr} = await supabaseClient.from('Sessions').select('*').eq('uuid', identity).eq('sessionid', Number(document.getElementById('session').value)).single();
-                if (damerr || !damel){
-                    rejection("Error", "Session Not Found", "The user is not registered for this session, please check the QR code and try again", "N/A");
-                    return;
-                }
-                if (damel.present){
-                    rejection("Already Checked In", ussr.name || "Participant", ussr.extrainfo, damel.identity || identity);
-                    return;
-                }
-                const {data,error} = await supabaseClient.from('Sessions').update({present:true}).eq('uuid', identity).eq('sessionid', Number(document.getElementById('session').value)).select().single();
-                if (!document.getElementById('session').value){
+                const selectedSession = document.getElementById('session').value;
+                if (!selectedSession || selectedSession === '--Choose a Session--'){
                     rejection("Error", "No Session Selected", "Please select a session to check-in a participant", "N/A")
-                }
-                
-                if (error || !data){
-                    rejection("Error", "Participant Not Found", "The scanned QR code does not match any participant in your event database, please check the QR code and try again", "N/A");
                     return;
                 }
 
-                accept("Checked In", ussr.name || "Participant", ussr.extrainfo, data.identity || identity);
+                const response = await fetch('/qr/checkin', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({identity, sessionId: Number(selectedSession)})
+                });
+                const result = await response.json();
+
+                if (result.status === 'already_checked_in'){
+                    rejection("Already Checked In", result.participant.name || "Participant", result.participant.extrainfo, result.session.identity || identity);
+                    return;
+                }
+
+                if (!response.ok){
+                    rejection("Error", "Check-In Rejected", result.error || "The scanned QR code does not match any participant in this event", "N/A");
+                    return;
+                }
+
+                accept("Checked In", result.participant.name || "Participant", result.participant.extrainfo, result.session.identity || identity);
 
             }catch(err){
                 console.error("Unable to process QR code:", err);

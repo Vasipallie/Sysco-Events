@@ -227,6 +227,64 @@ app.get('/qr', (req,res)=>{
         })
     })
 })
+  app.post('/qr/checkin', (req, res)=>{
+    authcheck(req, res, async (error)=>{
+      if (error) return res.status(500).json({error: 'Error authenticating the requested event'});
+
+      const identity = typeof req.body.identity === 'string' ? req.body.identity.trim() : '';
+      const sessionId = Number(req.body.sessionId);
+      const username = req.cookies.username;
+
+      if (!identity || !Number.isSafeInteger(sessionId) || sessionId <= 0) {
+        return res.status(400).json({error: 'Invalid participant or session'});
+      }
+
+      const {data: participant, error: participantError} = await supabase
+        .from('Users')
+        .select('*')
+        .eq('uuid', identity)
+        .eq('username', username)
+        .single();
+
+      if (participantError || !participant) {
+        return res.status(404).json({error: 'Participant is not registered for this event'});
+      }
+
+      const {data: session, error: sessionError} = await supabase
+        .from('Sessions')
+        .select('*')
+        .eq('uuid', identity)
+        .eq('sessionid', sessionId)
+        .single();
+
+      if (sessionError || !session) {
+        return res.status(404).json({error: 'Participant is not registered for this session'});
+      }
+
+      if (session.present) {
+        return res.status(409).json({
+          status: 'already_checked_in',
+          participant,
+          session,
+        });
+      }
+
+      const {data: updatedSession, error: updateError} = await supabase
+        .from('Sessions')
+        .update({present: true})
+        .eq('uuid', identity)
+        .eq('sessionid', sessionId)
+        .eq('present', false)
+        .select()
+        .single();
+
+      if (updateError || !updatedSession) {
+        return res.status(500).json({error: 'Unable to check in participant'});
+      }
+
+      return res.json({status: 'checked_in', participant, session: updatedSession});
+    });
+  });
 app.get('/login', (req,res)=>{
     res.render('login')
 })
