@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Participants | <%= locals.event_name %></title>
     <link rel="stylesheet" href="main.css">
     <link rel="icon" type="image/icon" href="resources/sysco.png">
     <style>
@@ -167,7 +167,82 @@
                 text-align:left;
             }
         }
+        .actions-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1em;
+            margin-bottom: 1em;
+            flex-wrap: wrap;
+        }
+        .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 14em;
+        }
+        .search-box span {
+            position: absolute;
+            left: 0.8em;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #98f6ff;
+            font-size: 1.1em;
+            pointer-events: none;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 0.6em 0.8em 0.6em 2.4em;
+            font-size: 1.1em;
+            border-radius: 0.6em;
+            background-color: #031A54;
+            color: #E6FDFF;
+            border: 1.5px solid #E6FDFF;
+            font-family: inherit;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 160ms ease, box-shadow 160ms ease;
+        }
+        .search-box input::placeholder {
+            color: rgba(230, 253, 255, 0.5);
+        }
+        .search-box input:focus {
+            border-color: #98f6ff;
+            box-shadow: 0 0 0 3px rgba(152, 246, 255, 0.25);
+        }
+        .participant-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8em;
+            width: 100%;
+        }
+        .participant-actions {
+            display: flex;
+            gap: 0.5em;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        .participant .danger {
+            border-color: rgba(255, 120, 120, 0.6);
+            color: #ff9e9e;
+        }
+        .participant .danger:hover,
+        .participant .danger:focus-visible {
+            background-color: #ff4d4d;
+            color: #ffffff;
+            border-color: #ff4d4d;
+        }
+        .partiemail,
+        .partiid {
+            overflow-wrap: anywhere;
+        }
+        .empty-msg {
+            text-align: center;
+            padding: 2em;
+            font-size: 1.2em;
+            color: rgba(230, 253, 255, 0.75);
+        }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 </head>
 <body>
     <div class="maine">
@@ -177,29 +252,45 @@
         <p id="date"></p>
         <a class="dashi" href="/dashboard">Back to Dashboard</a>
     </div>
-    <h1 style="text-align: center;">View Participants</h1>
-    <p style="text-align: center;">View your participants and manage their information.</p>
-    <span><%=locals.alert %></span>
+
+    <h1 style="text-align: center; margin-top: 0.6em; margin-bottom: 0.2em;">View Participants</h1>
+    <p style="text-align: center; margin-bottom: 1em; color: rgba(230, 253, 255, 0.75);">View your participants and manage their information.</p>
+    <% if (locals.alert) { %>
+        <p style="text-align: center; color: #98f6ff; margin-bottom: 1em;"><%= locals.alert %></p>
+    <% } %>
+
     <div class="particihold">
-        <input type="text" id="search" placeholder="Search Participants" style="width: 100%; padding: 0.5em; font-size: 1.2em; border-radius: 0.4em; border: 1.5px solid #E6FDFF; margin-bottom: 1em;">
-        <% if(locals.datea && locals.datea.length > 0) { %>
-            <% locals.datea.forEach(function(participant) { %>
-                <div class="participant">
-                    <div>
-                        <p class="partiname"><%= participant.name %></p>
-                        <p class="partiemail"><%= participant.email %></p>
-                        <a href="/sendemail/<%=participant.uuid%>">Send Email</a>
-                    </div>
-                    <div>
-                        <p class="partiid">ID: <%= participant.uuid %></p>
-                        <p>Extra information:<%= participant.extrainfo %></p>
-                        <a href="/remove/<%= participant.uuid %>">Remove participant</a> 
-                        <a href="/edit/<%= participant.uuid %>">Edit participant</a>
-                    </div>
-                </div>
-            <% }); %>
+        <div class="actions-bar">
+            <label class="search-box" for="search">
+                <span aria-hidden="true" class="fa fa-search"></span>
+                <input type="search" id="search" placeholder="Search by name, email, or ID" autocomplete="off">
+            </label>
+            <a class="dashi" href="/sendall">Send All Tickets</a>
+        </div>
+
+        <% if (locals.datea && locals.datea.length > 0) { %>
+            <div class="participant-list">
+                <% locals.datea.forEach(function(participant) { %>
+                    <article class="participant" data-search="<%= `${participant.name} ${participant.email} ${participant.uuid} ${participant.extrainfo || ''}`.toLowerCase() %>">
+                        <div>
+                            <p class="partiname"><%= participant.name %></p>
+                            <p class="partiemail"><%= participant.email %></p>
+                            <a href="/sendemail/<%=participant.uuid%>">Send Email</a>
+                        </div>
+                        <div>
+                            <p class="partiid">ID: <%= participant.uuid %></p>
+                            <p><strong>Extra information:</strong> <%= participant.extrainfo || 'None' %></p>
+                            <div class="participant-actions">
+                                <a href="/edit/<%= participant.uuid %>">Edit Participant</a>
+                                <a class="danger" href="/remove/<%= participant.uuid %>">Remove</a>
+                            </div>
+                        </div>
+                    </article>
+                <% }); %>
+            </div>
+            <p class="empty-msg" id="no-results" hidden>No participants match your search.</p>
         <% } else { %>
-            <p style="text-align: center;">No participants found.</p>
+            <p class="empty-msg">No participants found.</p>
         <% } %>
     </div>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -208,6 +299,20 @@
         var datdentity = document.getElementById('date');
         var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         datdentity.innerHTML = "Today: "+date.getDate() + " " + months[date.getMonth()] + " " + date.getFullYear();
+
+        const search = document.getElementById('search');
+        const noResults = document.getElementById('no-results');
+        const participants = document.querySelectorAll('.participant');
+        search.addEventListener('input', function () {
+            const query = search.value.trim().toLowerCase();
+            let visibleCount = 0;
+            participants.forEach(function (participant) {
+                const matches = participant.dataset.search.includes(query);
+                participant.hidden = !matches;
+                if (matches) visibleCount += 1;
+            });
+            if (noResults) noResults.hidden = visibleCount !== 0;
+        });
     </script>
 </body>
 </html>

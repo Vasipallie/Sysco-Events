@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="icon" type="image/icon" href="resources/sysco.png">
+</head>
+<body>
+    <div class="maine">
+        <img src="resources/syscot.png" class="infom">
+    </div>
+    <h1>How to format your CSV file</h1>
+    <p>The Sysco event suite allows you to add participants using our GUI, but if you're looking for a seamless way to create multiple participants at once, the CSV bulk creator helps you add participants to your event in a jiffy. You will have to follow the following format while creating your CSV files to ensure that participants are created properly and everyone is able to get their tickets on time</p>
+    <p>Make sure to save your CSV file in UTF-8 encoding to avoid any issues with special characters.</p>
+    <p>Please ensure that the emails are formatted properly, are unique, and do not contain any empty spaces or errors.</p>
+    <p>The CSV file that you upload needs to have the following fields (column header names are flexible — any capitalisation and spacing is accepted):</p>
+    <ul>
+        <li><strong>Participant Name</strong> — also accepted as <code>name</code></li>
+        <li><strong>Participant Email</strong> — also accepted as <code>email</code></li>
+        <li><strong>Extra Information</strong> — also accepted as <code>extrainfo</code> or <code>extra</code> (can be left blank)</li>
+    </ul>
+    <p>Example CSV:</p>
+    <pre><code>Participant Name,Participant Email,Extra Information
+Alice Tan,alice@example.com,Table 1
+Bob Lee,bob@example.com,
+</code></pre>
+    <p>Please ensure that the fields are exactly as mentioned above to avoid any errors during the import process. Rows with a missing name or invalid email will be skipped and you will be notified.</p>
+</body>
+</html>

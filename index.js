@@ -10,6 +10,8 @@ import QRCode from 'qrcode';
 import ejs from 'ejs';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import multer from 'multer';
+import {parse} from 'csv-parse/sync';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -31,6 +33,17 @@ const sender = {
     name: 'Sysco Events',
 };
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV files are allowed'));
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB limit
+});
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -250,12 +263,30 @@ app.get('/qr', (req,res)=>{
         return res.status(404).json({error: 'Participant is not registered for this event'});
       }
 
-      const {data: session, error: sessionError} = await supabase
+      let {data: session, error: sessionError} = await supabase
         .from('Sessions')
         .select('*')
         .eq('uuid', identity)
         .eq('sessionid', sessionId)
         .single();
+
+      // If no session row exists, the participant may have joined before sessions were created
+      // or sessions were added after. Auto-provision their sessions and retry.
+      if (sessionError || !session) {
+        const {data: eventData} = await supabase.from('Events').select('*').eq('username', username).single();
+        if (eventData) {
+          await generatesessions(username, getSessions(eventData));
+          // Re-fetch after provisioning
+          const refetch = await supabase
+            .from('Sessions')
+            .select('*')
+            .eq('uuid', identity)
+            .eq('sessionid', sessionId)
+            .single();
+          session = refetch.data;
+          sessionError = refetch.error;
+        }
+      }
 
       if (sessionError || !session) {
         return res.status(404).json({error: 'Participant is not registered for this session'});
@@ -473,9 +504,12 @@ app.get('/logind/:id', (req,res)=>{
 app.get('/viewparticipant', (req,res)=>{
     authcheck(req,res,async (error, data)=>{
         if (error) return res.status(500).send("Error authenticating");
+        const event = data[0];
+        // Sync sessions for all participants — handles the case where users
+        // joined before sessions existed, or sessions were added after users
+        await generatesessions(req.cookies.username, getSessions(event));
         const {data:datea, error:errora} = await supabase.from('Users').select('*').eq('username', req.cookies.username);
-        console.log(datea);
-        if (data) return res.render('viewparticipant', { username:req.cookies.username, event_name:data[0].event_name, datea})
+        if (data) return res.render('viewparticipant', { username:req.cookies.username, event_name:event.event_name, datea})
     })
 })
 app.get('/sendemail/:id', (req,res)=>{
@@ -523,90 +557,90 @@ For help, contact the event organiser at ${orgemail}.
 ${event_name} is powered by the Sysco Event Suite.`,
             html: `
             <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to {{event_name}}</title>
-</head>
-<body style="margin:0; padding:0; background-color:#000000;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
-
-          <tr>
-            <td align="center" bgcolor="#031A54" style="padding:16px; border-radius:0 0 24px 24px;">
-              <img src="${host}/resources/syscot.png" alt="Sysco" height="48" style="display:block; height:48px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
-            </td>
-          </tr>
-
-          <tr>
-            <td align="center" style="padding:32px 24px 12px; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
-              <h1 style="margin:0; font-size:26px; line-height:34px;">Welcome to ${event_name}, ${u_name}</h1>
-            </td>
-          </tr>
-
-          <tr>
-            <td align="center" style="padding:0 24px 24px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#ffffff;">
-              You have been invited to ${event_name} via the Sysco event suite. Use the QR code below the access the event page. This QR code admits one person only. Please do not share this QR code with anyone else. Neither Sysco nor the event organisers are responsible for any misuse of this QR code. If you have any issues with the QR code, please contact the event organisers directly.
-              <br>
-              <br>
-              You may contact the event organiser at <a href="mailto:${orgemail}">${orgemail}</a>
-              <br>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding:0 16px 32px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#031A54" style="border-radius:12px;">
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Welcome to {{event_name}}</title>
+            </head>
+            <body style="margin:0; padding:0; background-color:#000000;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000">
                 <tr>
-                  <td align="center" style="padding:28px 24px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#ffffff;">
-                    Use this QR code on the day of the event
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center" style="padding:16px 24px 24px;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <td align="center">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
+
                       <tr>
-                        <td align="center" bgcolor="#4378FF" style="border-radius:8px;">
-                          <img src="cid:participant-qr.png" alt="QR Code" style="display:block; height:200px;width:200px;padding:10px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+                        <td align="center" bgcolor="#031A54" style="padding:16px; border-radius:0 0 24px 24px;">
+                          <img src="${host}/resources/syscot.png" alt="Sysco" height="48" style="display:block; height:48px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
                         </td>
                       </tr>
+
+                      <tr>
+                        <td align="center" style="padding:32px 24px 12px; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+                          <h1 style="margin:0; font-size:26px; line-height:34px;">Welcome to ${event_name}, ${u_name}</h1>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td align="center" style="padding:0 24px 24px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#ffffff;">
+                          You have been invited to ${event_name} via the Sysco event suite. Use the QR code below the access the event page. This QR code admits one person only. Please do not share this QR code with anyone else. Neither Sysco nor the event organisers are responsible for any misuse of this QR code. If you have any issues with the QR code, please contact the event organisers directly.
+                          <br>
+                          <br>
+                          You may contact the event organiser at <a href="mailto:${orgemail}">${orgemail}</a>
+                          <br>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:0 16px 32px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#031A54" style="border-radius:12px;">
+                            <tr>
+                              <td align="center" style="padding:28px 24px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#ffffff;">
+                                Use this QR code on the day of the event
+                              </td>
+                            </tr>
+                            <tr>
+                              <td align="center" style="padding:16px 24px 24px;">
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                  <tr>
+                                    <td align="center" bgcolor="#4378FF" style="border-radius:8px;">
+                                      <img src="cid:participant-qr.png" alt="QR Code" style="display:block; height:200px;width:200px;padding:10px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:0 24px;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                  <tr><td height="1" bgcolor="#ffffff" style="height:1px; line-height:1px; font-size:1px; opacity:0.3;">&nbsp;</td></tr>
+                                </table>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td align="center" style="padding:24px 24px 28px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:26px; color:#ffffff;">
+                                Your details for the event are as follows:<br>
+                                <strong>Your Email:</strong> ${u_email}<br>
+                                <strong>Your Name:</strong> ${u_name}<br>
+                                <strong>Additional information:</strong> ${additional_info}<br>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td align="center" style="padding:0 24px 24px; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:20px; color:#ffffff; text-align:center;">
+                          ${event_name} is powered by the Sysco Event Suite
+                        </td>
+                      </tr>
+
                     </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:0 24px;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                      <tr><td height="1" bgcolor="#ffffff" style="height:1px; line-height:1px; font-size:1px; opacity:0.3;">&nbsp;</td></tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center" style="padding:24px 24px 28px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:26px; color:#ffffff;">
-                    Your details for the event are as follows:<br>
-                    <strong>Your Email:</strong> ${u_email}<br>
-                    <strong>Your Name:</strong> ${u_name}<br>
-                    <strong>Additional information:</strong> ${additional_info}<br>
                   </td>
                 </tr>
               </table>
-            </td>
-          </tr>
-
-          <tr>
-            <td align="center" style="padding:0 24px 24px; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:20px; color:#ffffff; text-align:center;">
-              ${event_name} is powered by the Sysco Event Suite
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
+            </body>
+            </html>
             `,
             headers: {
                 "Importance": "high",
@@ -621,6 +655,240 @@ ${event_name} is powered by the Sysco Event Suite.`,
     }
     res.redirect('/viewparticipant');
   });
+})
+app.get('/sendall', (req,res)=>{
+  authcheck(req,res, async (error,data)=>{
+    if (error) return res.status(500).send("Error authenticating");
+    const {data:participants, error:err} = await supabase.from('Users').select('*').eq('username', username);
+    if (err) return res.status(500).send('Error fetching the participants')
+      participants.forEach(async (participant)=>{
+        const event_name = data[0].event_name;
+        const orgemail = data[0].email;
+        const u_name = participant.name;
+        const u_email = participant.email;
+        const additional_info = participant.extrainfo || "none";
+        const qr_code = await QRCode.toBuffer(`sysco://${participant.uuid}`, {type: 'png'});
+        const recipients = [{
+          email: participant.email,
+        }]
+        const cc = participant.email.toLowerCase() === orgemail.toLowerCase()
+          ? []
+          : [{email: orgemail}];
+          
+    if (MAILTRAP) {
+      try {
+        await clientelle.send({
+          from: sender,
+            to: recipients,
+            cc: cc,
+            subject: `Your ${event_name} Ticket`,
+            attachments: [{
+              filename: 'participant-qr.png',
+              content_id: 'participant-qr.png',
+              disposition: 'inline',
+              content: qr_code,
+            }],
+            text: `Welcome to ${event_name}, ${u_name}.
+
+Use the QR code in this email to access the event page. This QR code admits one person only.
+
+Your Email: ${u_email}
+Your Name: ${u_name}
+Additional information: ${additional_info}
+
+For help, contact the event organiser at ${orgemail}.
+
+${event_name} is powered by the Sysco Event Suite.`,
+            html: `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Welcome to {{event_name}}</title>
+            </head>
+            <body style="margin:0; padding:0; background-color:#000000;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
+
+                      <tr>
+                        <td align="center" bgcolor="#031A54" style="padding:16px; border-radius:0 0 24px 24px;">
+                          <img src="${host}/resources/syscot.png" alt="Sysco" height="48" style="display:block; height:48px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td align="center" style="padding:32px 24px 12px; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+                          <h1 style="margin:0; font-size:26px; line-height:34px;">Welcome to ${event_name}, ${u_name}</h1>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td align="center" style="padding:0 24px 24px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#ffffff;">
+                          You have been invited to ${event_name} via the Sysco event suite. Use the QR code below the access the event page. This QR code admits one person only. Please do not share this QR code with anyone else. Neither Sysco nor the event organisers are responsible for any misuse of this QR code. If you have any issues with the QR code, please contact the event organisers directly.
+                          <br>
+                          <br>
+                          You may contact the event organiser at <a href="mailto:${orgemail}">${orgemail}</a>
+                          <br>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:0 16px 32px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#031A54" style="border-radius:12px;">
+                            <tr>
+                              <td align="center" style="padding:28px 24px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#ffffff;">
+                                Use this QR code on the day of the event
+                              </td>
+                            </tr>
+                            <tr>
+                              <td align="center" style="padding:16px 24px 24px;">
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                  <tr>
+                                    <td align="center" bgcolor="#4378FF" style="border-radius:8px;">
+                                      <img src="cid:participant-qr.png" alt="QR Code" style="display:block; height:200px;width:200px;padding:10px; border:0; font-family:Arial,Helvetica,sans-serif; color:#ffffff;">
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:0 24px;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                  <tr><td height="1" bgcolor="#ffffff" style="height:1px; line-height:1px; font-size:1px; opacity:0.3;">&nbsp;</td></tr>
+                                </table>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td align="center" style="padding:24px 24px 28px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:26px; color:#ffffff;">
+                                Your details for the event are as follows:<br>
+                                <strong>Your Email:</strong> ${u_email}<br>
+                                <strong>Your Name:</strong> ${u_name}<br>
+                                <strong>Additional information:</strong> ${additional_info}<br>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td align="center" style="padding:0 24px 24px; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:20px; color:#ffffff; text-align:center;">
+                          ${event_name} is powered by the Sysco Event Suite
+                        </td>
+                      </tr>
+
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            `,
+            headers: {
+                "Importance": "high",
+                "X-Priority": "1",
+                "X-MSMail-Priority": "High",
+            },
+        });
+      } catch (error) {
+        console.error('Mailtrap send failed:', error);
+        return res.status(502).send('Email could not be sent');
+      }
+    }
+    res.status(200).send("Emails sent successfully <a href='/viewparticipant'>Go Back</a>")
+    })
+  })
+})
+app.post('/addbulk', upload.single('bulkfile'), (req, res) => {
+  authcheck(req, res, async (error, data) => {
+    if (error) return res.status(500).send('Error authenticating');
+    if (!req.file) return res.status(400).send('No CSV file uploaded');
+
+    let rows;
+    try {
+      rows = parse(req.file.buffer, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        bom: true,
+      });
+    } catch (parseErr) {
+      console.error('CSV parse error:', parseErr);
+      return res.status(400).send('Could not parse CSV file. Please check the format and try again.');
+    }
+
+    if (!rows || rows.length === 0) {
+      return res.status(400).send('The CSV file is empty.');
+    }
+
+    const normalise = (key) => key.toLowerCase().replace(/\s+/g, '');
+    const participants = [];
+    const skipped = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i];
+      const mapped = {};
+      for (const [k, v] of Object.entries(raw)) {
+        mapped[normalise(k)] = v;
+      }
+
+      const name = mapped['participantname'] || mapped['name'] || '';
+      const email = mapped['participantemail'] || mapped['email'] || '';
+      const extrainfo = mapped['extrainformation'] || mapped['extrainfo'] || mapped['extra'] || '';
+
+      if (!name || !email || !email.includes('@')) {
+        skipped.push(i + 2); 
+        continue;
+      }
+
+      participants.push({ name, email, extrainfo, username: req.cookies.username });
+    }
+
+    if (participants.length === 0) {
+      return res.status(400).send(
+        `No valid participants found in the CSV. ${skipped.length > 0 ? `Rows skipped (missing name/email): ${skipped.join(', ')}` : ''}`
+      );
+    }
+
+    const { error: insertErr } = await supabase.from('Users').insert(participants);
+    if (insertErr) {
+      console.error('Bulk insert error:', insertErr);
+      return res.status(500).send('Error inserting participants: ' + (insertErr.message || 'Unknown error'));
+    }
+
+    const event = data[0];
+    await generatesessions(req.cookies.username, getSessions(event));
+
+    const msg = skipped.length > 0
+      ? `Added ${participants.length} participant(s). Skipped rows with missing/invalid data: ${skipped.join(', ')}.`
+      : `Successfully added ${participants.length} participant(s).`;
+
+    res.redirect('/viewparticipant?msg=' + encodeURIComponent(msg));
+  });
+})
+app.get('/addparticipant', (req,res)=>{
+  authcheck(req,res, async (error,data)=>{
+    if (error) return res.status(500).send("Error authenticating");
+    res.render('addparticipant', {username:req.cookies.username, event_name:data[0].event_name});
+  })
+})
+app.post('/addparticipant', (req,res)=>{
+  authcheck(req,res, async (error,data)=>{
+    if (error) return res.status(500).send('Error authenticating');
+    const {name,email,extrainfo}=req.body;
+    const {data:datea, error:err} = await supabase.from('Users').insert([{name,email,extrainfo,username:req.cookies.username}]);
+    if (err) return res.status(500).send("Error adding ", name);
+    const event = data[0];
+    const sessions = getSessions(event);
+    await generatesessions(req.cookies.username, sessions);
+    res.redirect('/viewparticipant');
+
+  })
+})
+app.get('/csvguide', (req,res)=>{
+  res.render('csvguide');
 })
 app.get('/remove/:id', (req,res)=>{
   authcheck(req,res,async (error, data)=>{

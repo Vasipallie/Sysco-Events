@@ -167,6 +167,30 @@
                 text-align:left;
             }
         }
+        .remove-session, #add-session{
+            display:inline-block;
+            margin-top:0.4em;
+            padding:0.35em 0.6em;
+            border:none;
+            background-color:#E6FDFF;
+            color:#031A54;
+            text-decoration:none;
+            border-radius:0.4em;
+            transition:background-color 160ms ease, color 160ms ease;
+            border:1px solid rgba(230, 253, 255, 0.65);
+        }
+        .remove-session:hover, #add-session:hover{
+            background-color:#031A54;
+            color:#E6FDFF;
+        }
+        .session-row{
+            display:flex;
+            align-items:center;
+            gap:0.5em;
+        }
+        .session-row{
+            margin-block:0.5em;
+        }
     </style>
 </head>
 <body>
@@ -179,10 +203,38 @@
     </div>
     <h1 style="text-align: center;">Add Participants</h1>
     <div class="particihold">
-        
+        <form method="POST" action="/addbulk" enctype="multipart/form-data">
+            <a href="/csvguide">Link: How to format your CSV file</a>
+            <label for="bulkfile">Upload a CSV file with Participant Info:</label>
+            <input type="file" name="bulkfile" id="bulkfile" accept=".csv" required>
+            <input type="submit" value="Add Participants">
+        </form>
+        <form method="POST" action="/addparticipant">
+            <label for="pname">Participant Name:</label>
+            <input type="text" id="pname" name="name" placeholder="Enter Participant Name" required>
+            <label for="pmail">Participant Email:</label>
+            <input type="email" id="pmail" name="email" placeholder="Enter Participant Email" required>
+            <label for="extrainfo">Extra Information: </label>
+            <input type="text" id="extrainfo" name="extrainfo" placeholder="Enter Extra Information about participant">
+            <input type="hidden" name="username" value="<%= locals.username %>">
+            <input type="submit" value="Add Participant">
+        </form>
     </div>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script>
+        const sessions = document.getElementById('sessions');
+        document.getElementById('add-session').addEventListener('click', () => {
+            const row = document.createElement('div');
+            row.className = 'session-row';
+            row.innerHTML = '<input type="hidden" name="session_id" value=""><input type="text" name="session_name" placeholder="Session name" required><button type="button" class="remove-session">Remove</button>';
+            sessions.appendChild(row);
+        });
+
+        sessions.addEventListener('click', (event) => {
+            if (event.target.classList.contains('remove-session')) {
+                event.target.closest('.session-row').remove();
+            }
+        });
+
         const date = new Date();
         var datdentity = document.getElementById('date');
         var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
