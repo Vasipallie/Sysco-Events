@@ -51,9 +51,6 @@ app.use(express.static(path.join(__dirname, 'views')));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.get('/', (req,res) => {
-    res.render('index')
-})
 app.get('/schedule', (req,res)=>{
     res.render('eventreg')
 })
@@ -919,6 +916,15 @@ app.post('/edit/:id', (req,res)=>{
     if (err) return res.status(500).send("Error while updating data");
     res.redirect('/viewparticipant');
   })
+})
+
+
+app.get('markmanual', (req,res)=>{
+  res.render('markmanual')
+})
+
+app.get('/', (req,res) => {
+    res.render('schedule')
 })
 
 export default app;
