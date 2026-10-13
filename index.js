@@ -29,7 +29,7 @@ const clientelle = new MailtrapClient({
 });
 
 const sender = {
-  email: process.env.SENDER_EMAIL || 'sysco@giisclubs.org',
+  email: process.env.SENDER_EMAIL || 'sysco@sonus.quest',
     name: 'Sysco Events',
 };
 
