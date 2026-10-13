@@ -10,7 +10,9 @@ Sysco events is a easy to use event suite that helps you manage your event with 
 * Manage your event details
 * Email participants their event tickets, individually or all at once.
 
-While you can use Sysco using the demo link [sysco event scheduler](https://sysco.giisclubs.org) you may use the below information to setup your own version of sysco.
+While you can use Sysco using the demo link [sysco event scheduler](https://sysco.sonus.quest) you may use the below information to setup your own version of sysco.
+
+
 
 ## Setup
 1. Make a copy of .example.env and rename it to just ".env"
